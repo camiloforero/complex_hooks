@@ -39,7 +39,8 @@ def email_document(item, email_document_hook, podioApi):
             if date.field_id == "":
                 raw_date = datetime.today() 
             else:
-                pass #Debe atender dos casos: cuando es un campo normal y cuando es un campo dentro de un related item
+                raw_date = datetime.strptime(item['values'][int(date.field_id)]['value']['start_date'], "%Y-%m-%d")
+                #TODO Debe atender dos casos: cuando es un campo normal y cuando es un campo dentro de un related item
             #Segundo, se corre la fecha la cantidad de días que especifica el date_manager
             raw_date = raw_date + timedelta(days=date.time_delta)
             #Tercero, se define el formato que va a tomar la fecha
@@ -86,7 +87,7 @@ def email_document(item, email_document_hook, podioApi):
             #    print "Error subiendo el documento a PODIO. Continuando con el script..."
             print "documento subido exitosamente"
         if hook.email_template:
-            print "Iniciando el envío del correo"
+            print "Iniciando el envio del correo"
             print hook.email_template.pk
             email = mailApi.MailApi(hook.email_template.name)
             from_email = tools.retrieve_email(hook.from_email, item)
@@ -96,8 +97,12 @@ def email_document(item, email_document_hook, podioApi):
             else:
                 cc_email = []
             print "Enviando correo a %s desde %s" % (to_email, from_email)
-            email_send_status = str(email.send_mail(from_email, [to_email], flat_data, attachments=attachments))
-            print "Status de envío: %s" % email_send_status
+            email_send_status = "Test mode"
+            try:
+                email_send_status = str(email.send_mail(from_email, [to_email], flat_data, attachments=attachments))
+            except Exception as e:
+                email_send_status = "ERROR enviando el correo" 
+            print "Status de envio: %s" % email_send_status
             status += email_send_status
         print "Ejecucion exitosa del hook"
         return status

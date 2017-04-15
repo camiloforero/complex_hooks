@@ -8,7 +8,9 @@ from django_expa.models import LoginData
 
 from django.db import models
 
-###################### PODIO - EMAIL -DOCUMENT ###################
+from multiselectfield import MultiSelectField
+
+###################### EXPA - PODIO - EMAIL - DOCUMENT ###################
 
 @python_2_unicode_compatible
 class EmailDocumentHook(models.Model):
@@ -102,18 +104,18 @@ class EXPAPodioLoader(models.Model):
         (REALIZED, 'realized'),
     )
     OGV = 'ogv'
-    OGIP = 'ogip'
+    OGT = 'ogt'
+    OGE = 'oge'
     IGV = 'igv'
-    IGIP = 'igip'
-    OGX = 'ogx'
-    ICX = 'icx'
+    IGT = 'igt'
+    IGE = 'ige'
     AREAS = (
         (OGV, 'ogv'),
-        (OGIP, 'ogip'),
+        (OGT, 'ogt'),
+        (OGE, 'oge'),
         (IGV, 'igv'),
-        (IGIP, 'igip'),
-        (OGX, 'ogx'),
-        (ICX, 'icx'),
+        (IGT, 'igt'),
+        (IGE, 'ige'),
     )
     name = models.CharField("Nombre", help_text="Nombre del cargador a EXPA. es bueno que sea descriptivo sin ser muy largo", max_length=64)
     cuenta = models.ForeignKey(LoginData, models.PROTECT, help_text="La cuenta de EXPA que será utilizada para obtener el token de acceso")
@@ -121,7 +123,7 @@ class EXPAPodioLoader(models.Model):
     interaction = models.CharField("Interacción", help_text="El tipo de interacción del usuario o de la oportunidad dentro de EXPA", choices=INTERACTIONS, max_length=16) 
     days_past = models.PositiveSmallIntegerField("Dias en el pasado", help_text="La cantidad de días en el pasado desde la que se desea solicitar los datos. Si es uno, se pedirán los de ayer.", default=1)
     lc_id = models.PositiveSmallIntegerField("LC ID", help_text="El EXPA ID del LC específico sobre el que se desea hacer la consulta.", default=1395)
-    area = models.CharField("Area", help_text="El área sobre la cual se quiere hacer la consulta.", max_length=8, choices=AREAS)
+    area = MultiSelectField("Area", help_text="El área sobre la cual se quiere hacer la consulta.", max_length=8, choices=AREAS)
     email_template = models.ForeignKey(Email, models.CASCADE, help_text="EL template del email que se le va a enviar a la persona, en caso que se desee", blank=True, null=True)
     from_email = models.CharField("Correo de envío", help_text="El correo desde el cual se envía el documento y el correo, o un valor numérico del field_id donde se puede encontrar", max_length=256)
     cc_email = models.CharField("El correo electrónico de un cc, o un valor numérico con el field_id donde se puede encontrar", max_length=256, blank=True, null=True)
