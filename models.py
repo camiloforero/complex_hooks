@@ -14,7 +14,7 @@ from multiselectfield import MultiSelectField
 
 @python_2_unicode_compatible
 class EmailDocumentHook(models.Model):
-    name = models.CharField("Nombre", help_text="Nombre del hook. Es bueno que sea descriptivo sin ser muy largo", max_length=64)
+    name = models.CharField("Name", help_text="Nombre del hook. Es bueno que sea descriptivo sin ser muy largo", max_length=64)
     description = models.TextField("Descripción", help_text="Descripción: Qué hace este hook exactamente?")
     hook = models.OneToOneField(Hook, models.CASCADE, null=True, blank=True, related_name = "email_document_hook", help_text="El hook de la aplicación y del item al cual está asociado este hook completo. EL módulo de dicho hook debe ser hook_email_document.py")
     document = models.ForeignKey(ODTTemplate, models.CASCADE, help_text="El documento que se generará automáticamente cada vez que se llama este hook. Es importante que los valores de los campos a llenar dentro de dicho documento hayan sido debidamente llenados con los field_id correspondientes de la aplicación de PODIO", blank=True, null=True)

@@ -1,7 +1,7 @@
 # encoding:utf-8
 from __future__ import unicode_literals
 from datetime import datetime, timedelta
-from django.template import Template, Context
+from django.template import Template, Context, TemplateSyntaxError
 from django_podio import api, tools
 from django_documents import documentsApi
 from django_mailTemplates import mailApi
@@ -18,8 +18,18 @@ def email_document(item, email_document_hook, podioApi):
     for condition in conditions:
         ans += unicode(condition)
         if condition.condition_type == "=":
-            all_conditions = all_conditions and condition.value == item['values'][condition.field_id]['value']
-            print item['values'][condition.field_id]['value']
+            # Checks that the value exists. In PODIO, empty fields are not sent as part of the item, so trying to retrieve them will net an exception
+            try:
+                field = item['values'][condition.field_id]['value']
+            except KeyError:
+                field = None
+            # If the value is a "null" string, it is converted to a None value
+            if condition.value == "null":
+                value = None
+            else:
+                value = condition.value
+            all_conditions = all_conditions and value == field
+            print field
     print ans
     if all_conditions:
         transformer_dict = {}
@@ -39,7 +49,12 @@ def email_document(item, email_document_hook, podioApi):
             if date.field_id == "":
                 raw_date = datetime.today() 
             else:
-                raw_date = datetime.strptime(item['values'][int(date.field_id)]['value']['start_date'], "%Y-%m-%d")
+                try:
+                    raw_date = datetime.strptime(item['values'][int(date.field_id)]['value']['start_date'], "%Y-%m-%d")
+                except KeyError: # This happens when for some reason the date is not set, not found. Will just leave the field blank
+                    flat_data[date.variable] = ""
+                    break
+                    
                 #TODO Debe atender dos casos: cuando es un campo normal y cuando es un campo dentro de un related item
             #Segundo, se corre la fecha la cantidad de días que especifica el date_manager
             raw_date = raw_date + timedelta(days=date.time_delta)
@@ -69,29 +84,36 @@ def email_document(item, email_document_hook, podioApi):
         flat_data['fecha'] = datetime.today().strftime('%d de %%s, %Y') % tools.MESES[int(datetime.today().strftime('%m')) - 1]
         print flat_data
         status = ""
+        final_message = ""
         if hook.document:
             print "generando documento"
-            generator = documentsApi.ODTTemplate(hook.document.file_name + '.odt')#TODO: esto solo sirve con odts, toca formalizarlo 
-            generated_document = generator.render(flat_data, odt=hook.generate_odt)
-            if hook.generate_odt:
-                extension = '.odt'
-            else:
-                extension = '.pdf'
-            file_name = Template(hook.document.generated_file_name).render(Context(flat_data)) + extension
-            attachments.append({'filename':file_name, 'data': generated_document.read()})
-            generated_document.seek(0)
-            #try:
-            documentResponse = podioApi.appendFile(item['item'], file_name, generated_document)
-            status += str(documentResponse)
-            #except:
-            #    print "Error subiendo el documento a PODIO. Continuando con el script..."
-            print "documento subido exitosamente"
+            try:
+                generator = documentsApi.ODTTemplate(hook.document.file_name + '.odt')#TODO: esto solo sirve con odts, toca formalizarlo 
+                generated_document = generator.render(flat_data, odt=hook.generate_odt)
+                if hook.generate_odt:
+                    extension = '.odt'
+                else:
+                    extension = '.pdf'
+                file_name = Template(hook.document.generated_file_name).render(Context(flat_data)) + extension
+                attachments.append({'filename':file_name, 'data': generated_document.read()})
+                generated_document.seek(0)
+                #try:
+                documentResponse = podioApi.appendFile(item['item'], file_name, generated_document)
+                status += str(documentResponse)
+                final_message += "Document created and uploaded successfully."
+                print "documento subido exitosamente"
+            except TemplateSyntaxError as e:
+                print "Error con el documento, no tiene formato adecuado. Continuando con el script..."
+                final_message += "Error when generating the document: %s. The script continued. Check it out @['Camilo Forero'](user:1707071)" % e
+                podioApi.comment('item', item['item'], {"value":final_message})
+                print e
+                return
         if hook.email_template:
             print "Iniciando el envio del correo"
             print hook.email_template.pk
             email = mailApi.MailApi(hook.email_template.name)
             from_email = tools.retrieve_email(hook.from_email, item)
-            to_email = tools.retrieve_email(hook.to_email, item)
+            to_email = [tools.retrieve_email(hook.to_email, item)]
             if hook.cc_email:
                 cc_email = tools.retrieve_email(hook.cc_email, item)
             else:
@@ -99,12 +121,16 @@ def email_document(item, email_document_hook, podioApi):
             print "Enviando correo a %s desde %s" % (to_email, from_email)
             email_send_status = "Test mode"
             try:
-                email_send_status = str(email.send_mail(from_email, [to_email], flat_data, attachments=attachments))
+                email_send_status = str(email.send_mail(from_email, to_email, flat_data, attachments=attachments))
+                final_message += "Email sent successfully from %s to %s" % (from_email, to_email)
             except Exception as e:
-                email_send_status = "ERROR enviando el correo" 
+                final_message += "ERROR sending the email from %s to %s: %s. Check it out @['Camilo Forero'](user:1707071)" % (to_email, from_email, e)
+
+                print e
             print "Status de envio: %s" % email_send_status
             status += email_send_status
-        print "Ejecucion exitosa del hook"
+        print final_message
+        podioApi.comment('item', item['item'], {"value":final_message})
         return status
     else:
         return ans
