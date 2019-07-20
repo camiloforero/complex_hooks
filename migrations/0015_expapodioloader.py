@@ -9,7 +9,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('django_mailTemplates', '0006_auto_20160513_1451'),
+        ('django_mailTemplates', '0006_auto_20170415_0552'),
         ('django_expa', '0001_initial'),
         ('complex_hooks', '0014_emaildocumenthook_generate_odt'),
     ]
